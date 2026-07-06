@@ -800,7 +800,7 @@
         <div>
           <div class="ps-name">${p}</div>
           <div class="ps-detail">
-            正常${counts.normal} · 迟到${counts.late} · 早退${counts.early} · 请假${counts.leave} · 缺勤${counts.absent}
+            正常${counts.normal} · 迟到${counts.late} · 出差${counts.early} · 请假${counts.leave} · 缺勤${counts.absent}
           </div>
         </div>
         <div class="ps-total">${total}<small style="font-size:12px;color:#8395A7;font-weight:400">/${totalDays}</small></div>
@@ -834,7 +834,7 @@
       text += `  总记录天数：${total}/${totalDays}\n`;
       text += `  正常出勤：${counts.normal} 天\n`;
       text += `  迟到：${counts.late} 天\n`;
-      text += `  早退：${counts.early} 天\n`;
+      text += `  出差：${counts.early} 天\n`;
       text += `  请假：${counts.leave} 天\n`;
       text += `  缺勤：${counts.absent} 天\n`;
       text += `  正常出勤率：${rate}%\n`;
