@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>月度考勤记录</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  
+  :root {
+    --primary: #4F7CFF;
+    --primary-light: #E8EDFF;
+    --success: #00C48C;
+    --warning: #FF9F43;
+    --danger: #FF6B6B;
+    --info: #5E9FFF;
+    --bg: #F5F6FA;
+    --card: #FFFFFF;
+    --text: #2D3436;
+    --text-secondary: #8395A7;
+    --border: #E8ECF1;
+    --radius: 14px;
+    --shadow: 0 2px 12px rgba(0,0,0,0.06);
+  }
+  
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding-bottom: 90px;
+    overflow-x: hidden;
+  }
+  
+  /* ===== 顶部导航 ===== */
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: linear-gradient(135deg, #4F7CFF 0%, #6C5CE7 100%);
+    padding: 16px 16px 20px;
+    color: #fff;
+    box-shadow: 0 4px 20px rgba(79,124,255,0.3);
+  }
+  .header .title {
+    font-size: 20px;
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: 1px;
+  }
+  .header .subtitle {
+    text-align: center;
+    font-size: 12px;
+    opacity: 0.8;
+    margin-top: 2px;
+  }
+  
+  /* ===== 月份选择器 ===== */
+  .month-picker {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 14px;
+  }
+  .month-picker button {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.2);
+    color: #fff;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    -webkit-user-select: none;
+  }
+  .month-picker button:active { background: rgba(255,255,255,0.35); transform: scale(0.92); }
+  .month-picker .month-text {
+    font-size: 17px;
+    font-weight: 600;
+    min-width: 130px;
+    text-align: center;
+  }
+  
+  /* ===== 人员 Tab ===== */
+  .person-tabs {
+    display: flex;
+    gap: 8px;
+    padding: 14px 16px 10px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .person-tabs::-webkit-scrollbar { display: none; }
+  .person-tab {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 6px;
+    border-radius: var(--radius);
+    border: 2px solid var(--border);
+    background: var(--card);
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s;
+    -webkit-user-select: none;
+  }
+  .person-tab.active {
+    border-color: var(--primary);
+    background: var(--primary-light);
+  }
+  .person-tab .tab-name {
+    font-size: 15px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .person-tab .tab-count {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+  }
+  .person-tab.active .tab-count { color: var(--primary); }
+  
+  /* ===== 日历网格 ===== */
+  .calendar-section {
+    padding: 0 16px;
+    margin-top: 6px;
+  }
+  .calendar-header {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    text-align: center;
+    padding: 8px 0;
+  }
+  .calendar-header span {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+  }
+  .cal-day {
+    aspect-ratio: 1;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s;
+    background: var(--card);
+    -webkit-user-select: none;
+  }
+  .cal-day:active { transform: scale(0.9); }
+  .cal-day.empty { background: transparent; cursor: default; }
+  .cal-day.empty:active { transform: none; }
+  .cal-day.today { box-shadow: inset 0 0 0 2px var(--primary); }
+  .cal-day.selected { background: var(--primary); color: #fff; }
+  .cal-day.other-month { color: #ccc; }
+  .cal-day .day-num { line-height: 1; }
+  .cal-day .day-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    margin-top: 3px;
+  }
+  .dot-normal { background: var(--success); }
+  .dot-late { background: var(--warning); }
+  .dot-early { background: #A29BFE; }
+  .dot-leave { background: var(--info); }
+  .dot-absent { background: var(--danger); }
+  
+  /* ===== 底部弹出层 ===== */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 200;
+    align-items: flex-end;
+    justify-content: center;
+    animation: fadeIn 0.2s;
+  }
+  .modal-overlay.show { display: flex; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  
+  .modal-sheet {
+    width: 100%;
+    max-width: 500px;
+    background: var(--card);
+    border-radius: 20px 20px 0 0;
+    padding: 20px 20px 34px;
+    animation: slideUp 0.3s ease-out;
+    max-height: 80vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .modal-sheet .sheet-handle {
+    width: 40px; height: 4px;
+    border-radius: 2px;
+    background: #ddd;
+    margin: 0 auto 16px;
+  }
+  .modal-sheet h3 {
+    font-size: 17px;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+  
+  /* ===== 考勤类型选择 ===== */
+  .type-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .type-btn {
+    padding: 14px 8px;
+    border-radius: 12px;
+    border: 2px solid var(--border);
+    background: var(--card);
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    -webkit-user-select: none;
+  }
+  .type-btn:active { transform: scale(0.95); }
+  .type-btn.selected { border-color: var(--primary); background: var(--primary-light); }
+  .type-btn .type-icon { font-size: 24px; margin-bottom: 4px; }
+  .type-btn .type-label { font-size: 13px; font-weight: 500; }
+  .type-btn.selected .type-label { color: var(--primary); }
+  
+  /* ===== 按钮 ===== */
+  .btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: 12px;
+    border: none;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    -webkit-user-select: none;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:active { background: #3D6AE8; }
+  .btn-danger { background: var(--danger); color: #fff; margin-top: 10px; }
+  .btn-outline {
+    background: transparent;
+    border: 1.5px solid var(--border);
+    color: var(--text);
+    margin-top: 10px;
+  }
+  
+  /* ===== 记录明细 ===== */
+  .section-title {
+    font-size: 15px;
+    font-weight: 600;
+    padding: 16px 16px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .section-title .badge {
+    font-size: 12px;
+    background: var(--primary-light);
+    color: var(--primary);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 500;
+  }
+  
+  .record-list {
+    padding: 0 16px;
+  }
+  .record-item {
+    display: flex;
+    align-items: center;
+    padding: 14px 14px;
+    background: var(--card);
+    border-radius: var(--radius);
+    margin-bottom: 8px;
+    box-shadow: var(--shadow);
+    gap: 12px;
+  }
+  .record-item .rec-date {
+    font-size: 15px;
+    font-weight: 600;
+    min-width: 50px;
+  }
+  .record-item .rec-type {
+    flex: 1;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .record-item .rec-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .record-item .rec-del {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: none;
+    background: #FFF0F0;
+    color: var(--danger);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    -webkit-user-select: none;
+  }
+  .record-item .rec-del:active { background: #FFD6D6; }
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+  .empty-state .empty-icon { font-size: 48px; margin-bottom: 10px; }
+  
+  /* ===== 汇总卡片 ===== */
+  .summary-card {
+    margin: 10px 16px;
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .summary-header {
+    background: linear-gradient(135deg, #4F7CFF, #6C5CE7);
+    color: #fff;
+    padding: 16px;
+    text-align: center;
+  }
+  .summary-header .sum-title { font-size: 16px; font-weight: 600; }
+  .summary-header .sum-sub { font-size: 12px; opacity: 0.8; margin-top: 2px; }
+  
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1px;
+    background: var(--border);
+  }
+  .summary-cell {
+    background: var(--card);
+    padding: 14px 12px;
+    text-align: center;
+  }
+  .summary-cell .cell-value {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--primary);
+  }
+  .summary-cell .cell-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+  }
+  
+  .person-summary-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .person-summary-row:last-child { border-bottom: none; }
+  .person-summary-row .ps-name {
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .person-summary-row .ps-detail {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .person-summary-row .ps-total {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--primary);
+  }
+  
+  /* ===== 底部操作栏 ===== */
+  .bottom-bar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--card);
+    border-top: 1px solid var(--border);
+    padding: 10px 16px;
+    display: flex;
+    gap: 10px;
+    z-index: 90;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+  }
+  .bottom-bar .btn { flex: 1; padding: 12px; font-size: 14px; }
+  .bottom-bar .btn-summary {
+    background: linear-gradient(135deg, #4F7CFF, #6C5CE7);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    -webkit-user-select: none;
+  }
+  .bottom-bar .btn-summary:active { opacity: 0.85; }
+  
+  /* ===== Toast ===== */
+  .toast {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.8);
+    background: rgba(0,0,0,0.75);
+    color: #fff;
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-size: 14px;
+    z-index: 999;
+    opacity: 0;
+    transition: all 0.3s;
+    pointer-events: none;
+    text-align: center;
+    max-width: 80%;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  
+  /* ===== 总结弹窗 ===== */
+  .summary-modal .modal-sheet {
+    max-height: 85vh;
+  }
+  .summary-content {
+    background: #F8F9FD;
+    border-radius: 12px;
+    padding: 16px;
+    font-size: 14px;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 50vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    font-family: "PingFang SC", "Microsoft YaHei", monospace;
+  }
+  .copy-tip {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+
+<!-- 顶部导航 -->
+<div class="header">
+  <div class="title">📋 月度考勤记录</div>
+  <div class="subtitle">杨建军 · 沈炜 · 郁启</div>
+  <div class="month-picker">
+    <button id="prevMonth">◀</button>
+    <div class="month-text" id="monthText"></div>
+    <button id="nextMonth">▶</button>
+  </div>
+</div>
+
+<!-- 人员 Tab -->
+<div class="person-tabs" id="personTabs"></div>
+
+<!-- 日历 -->
+<div class="calendar-section">
+  <div class="calendar-header">
+    <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+  </div>
+  <div class="calendar-grid" id="calendarGrid"></div>
+</div>
+
+<!-- 记录明细 -->
+<div class="section-title">
+  <span>📝 考勤明细</span>
+  <span class="badge" id="recordCount">0 条</span>
+</div>
+<div class="record-list" id="recordList"></div>
+
+<!-- 汇总区域 -->
+<div class="section-title">
+  <span>📊 月度汇总</span>
+</div>
+<div class="summary-card" id="summaryCard">
+  <div class="summary-header">
+    <div class="sum-title" id="sumTitle">2026年7月 考勤汇总</div>
+    <div class="sum-sub" id="sumSub">共 3 人</div>
+  </div>
+  <div id="summaryBody"></div>
+</div>
+
+<!-- 底部操作栏 -->
+<div class="bottom-bar">
+  <button class="btn-summary" id="btnSummary">📊 生成月度总结</button>
+</div>
+
+<!-- 考勤类型选择弹窗 -->
+<div class="modal-overlay" id="typeModal">
+  <div class="modal-sheet">
+    <div class="sheet-handle"></div>
+    <h3 id="modalTitle">选择考勤类型</h3>
+    <div class="type-grid" id="typeGrid"></div>
+    <button class="btn btn-primary" id="confirmType">确认添加</button>
+    <button class="btn btn-outline" id="cancelType">取消</button>
+  </div>
+</div>
+
+<!-- 月度总结弹窗 -->
+<div class="modal-overlay summary-modal" id="summaryModal">
+  <div class="modal-sheet">
+    <div class="sheet-handle"></div>
+    <h3>📊 月度总结报告</h3>
+    <div class="summary-content" id="summaryContent"></div>
+    <div class="copy-tip">点击复制按钮可复制到剪贴板</div>
+    <button class="btn btn-primary" id="copySummary">📋 复制到剪贴板</button>
+    <button class="btn btn-outline" id="closeSummary">关闭</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+(function() {
+  'use strict';
+  
+  const PEOPLE = ['杨建军', '沈炜', '郁启'];
+  const TYPES = [
+    { key: 'normal', label: '正常', icon: '✅', color: '#00C48C' },
+    { key: 'late', label: '迟到', icon: '⏰', color: '#FF9F43' },
+    { key: 'early', label: '早退', icon: '🏃', color: '#A29BFE' },
+    { key: 'leave', label: '请假', icon: '📄', color: '#5E9FFF' },
+    { key: 'absent', label: '缺勤', icon: '❌', color: '#FF6B6B' },
+  ];
+  const WEEKDAY = ['日','一','二','三','四','五','六'];
+  
+  let currentYear, currentMonth, selectedPerson = 0;
+  let selectedDate = null;
+  let selectedType = null;
+  let records = {}; // { '2026-7': [ {date, person, type} ] }
+  
+  // ===== 初始化 =====
+  function init() {
+    const now = new Date();
+    currentYear = now.getFullYear();
+    currentMonth = now.getMonth() + 1;
+    loadData();
+    renderPersonTabs();
+    renderMonth();
+    renderRecords();
+    renderSummary();
+    bindEvents();
+  }
+  
+  function loadData() {
+    try {
+      const d = localStorage.getItem('attendance_records');
+      if (d) records = JSON.parse(d);
+    } catch(e) { records = {}; }
+  }
+  
+  function saveData() {
+    localStorage.setItem('attendance_records', JSON.stringify(records));
+  }
+  
+  function getMonthKey() { return `${currentYear}-${currentMonth}`; }
+  
+  function getMonthRecords() {
+    return records[getMonthKey()] || [];
+  }
+  
+  function setMonthRecords(data) {
+    records[getMonthKey()] = data;
+    saveData();
+  }
+  
+  // ===== 渲染人员 Tab =====
+  function renderPersonTabs() {
+    const container = document.getElementById('personTabs');
+    container.innerHTML = PEOPLE.map((p, i) => {
+      const count = getMonthRecords().filter(r => r.person === i).length;
+      return `<div class="person-tab ${i === selectedPerson ? 'active' : ''}" data-idx="${i}">
+        <div class="tab-name">${p}</div>
+        <div class="tab-count">${count} 条记录</div>
+      </div>`;
+    }).join('');
+  }
+  
+  // ===== 渲染月份 =====
+  function renderMonth() {
+    document.getElementById('monthText').textContent = `${currentYear}年${currentMonth}月`;
+    const grid = document.getElementById('calendarGrid');
+    const monthRecs = getMonthRecords();
+    
+    const firstDay = new Date(currentYear, currentMonth - 1, 1).getDay();
+    const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+    const prevDays = new Date(currentYear, currentMonth - 1, 0).getDate();
+    
+    let html = '';
+    // 上月补齐
+    for (let i = firstDay - 1; i >= 0; i--) {
+      html += `<div class="cal-day other-month empty"><span class="day-num">${prevDays - i}</span></div>`;
+    }
+    
+    const today = new Date();
+    const isCurrentMonth = today.getFullYear() === currentYear && today.getMonth() + 1 === currentMonth;
+    
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${currentYear}-${currentMonth}-${d}`;
+      const dayRecs = monthRecs.filter(r => r.date === dateStr && r.person === selectedPerson);
+      const isToday = isCurrentMonth && d === today.getDate();
+      const isSelected = selectedDate === d;
+      
+      let cls = 'cal-day';
+      if (isToday) cls += ' today';
+      if (isSelected) cls += ' selected';
+      
+      let dotHtml = '';
+      if (dayRecs.length > 0) {
+        const typeObj = TYPES.find(t => t.key === dayRecs[0].type);
+        dotHtml = `<div class="day-dot dot-${dayRecs[0].type}"></div>`;
+      }
+      
+      html += `<div class="${cls}" data-day="${d}">
+        <span class="day-num">${d}</span>${dotHtml}
+      </div>`;
+    }
+    
+    // 下月补齐
+    const totalCells = firstDay + daysInMonth;
+    const rows = Math.ceil(totalCells / 7);
+    const needCells = rows * 7;
+    for (let i = 1; i <= needCells - totalCells; i++) {
+      html += `<div class="cal-day other-month empty"><span class="day-num">${i}</span></div>`;
+    }
+    
+    grid.innerHTML = html;
+    
+    // 绑定日期点击
+    grid.querySelectorAll('.cal-day:not(.empty)').forEach(el => {
+      el.addEventListener('click', () => {
+        const day = parseInt(el.dataset.day);
+        selectedDate = day;
+        openTypeModal();
+      });
+    });
+  }
+  
+  // ===== 考勤类型弹窗 =====
+  function openTypeModal() {
+    selectedType = null;
+    const dateStr = `${currentYear}-${currentMonth}-${selectedDate}`;
+    const existing = getMonthRecords().find(r => r.date === dateStr && r.person === selectedPerson);
+    
+    document.getElementById('modalTitle').textContent = 
+      `${PEOPLE[selectedPerson]} · ${selectedDate}日${existing ? '（已存在记录，将覆盖）' : ''}`;
+    
+    const grid = document.getElementById('typeGrid');
+    grid.innerHTML = TYPES.map(t => `
+      <div class="type-btn ${existing && existing.type === t.key ? 'selected' : ''}" data-type="${t.key}">
+        <div class="type-icon">${t.icon}</div>
+        <div class="type-label">${t.label}</div>
+      </div>
+    `).join('');
+    
+    grid.querySelectorAll('.type-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        grid.querySelectorAll('.type-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        selectedType = btn.dataset.type;
+      });
+    });
+    
+    // 如果已有记录，默认选中
+    if (existing) {
+      selectedType = existing.type;
+    }
+    
+    document.getElementById('typeModal').classList.add('show');
+  }
+  
+  function closeTypeModal() {
+    document.getElementById('typeModal').classList.remove('show');
+  }
+  
+  // ===== 确认添加考勤 =====
+  function confirmAdd() {
+    if (!selectedType || selectedDate === null) {
+      showToast('请选择考勤类型');
+      return;
+    }
+    
+    const dateStr = `${currentYear}-${currentMonth}-${selectedDate}`;
+    let monthRecs = getMonthRecords();
+    
+    // 删除同一天同一人的旧记录
+    monthRecs = monthRecs.filter(r => !(r.date === dateStr && r.person === selectedPerson));
+    // 添加新记录
+    monthRecs.push({ date: dateStr, person: selectedPerson, type: selectedType });
+    
+    setMonthRecords(monthRecs);
+    closeTypeModal();
+    selectedDate = null;
+    selectedType = null;
+    
+    renderPersonTabs();
+    renderMonth();
+    renderRecords();
+    renderSummary();
+    showToast('✅ 添加成功');
+  }
+  
+  // ===== 渲染记录明细 =====
+  function renderRecords() {
+    const monthRecs = getMonthRecords()
+      .filter(r => r.person === selectedPerson)
+      .sort((a, b) => {
+        const da = parseInt(a.date.split('-')[2]);
+        const db = parseInt(b.date.split('-')[2]);
+        return da - db;
+      });
+    
+    document.getElementById('recordCount').textContent = `${monthRecs.length} 条`;
+    
+    const container = document.getElementById('recordList');
+    if (monthRecs.length === 0) {
+      container.innerHTML = `<div class="empty-state">
+        <div class="empty-icon">📅</div>
+        <div>点击日历上的日期添加考勤记录</div>
+      </div>`;
+      return;
+    }
+    
+    container.innerHTML = monthRecs.map(r => {
+      const typeObj = TYPES.find(t => t.key === r.type);
+      const day = r.date.split('-')[2];
+      return `<div class="record-item">
+        <div class="rec-date">${day}日</div>
+        <div class="rec-type">
+          <div class="rec-dot" style="background:${typeObj.color}"></div>
+          ${typeObj.icon} ${typeObj.label}
+        </div>
+        <button class="rec-del" data-date="${r.date}" data-person="${r.person}">🗑</button>
+      </div>`;
+    }).join('');
+    
+    // 删除绑定
+    container.querySelectorAll('.rec-del').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const date = btn.dataset.date;
+        const person = parseInt(btn.dataset.person);
+        let monthRecs = getMonthRecords();
+        monthRecs = monthRecs.filter(r => !(r.date === date && r.person === person));
+        setMonthRecords(monthRecs);
+        renderPersonTabs();
+        renderMonth();
+        renderRecords();
+        renderSummary();
+        showToast('🗑️ 已删除');
+      });
+    });
+  }
+  
+  // ===== 渲染汇总 =====
+  function renderSummary() {
+    const monthRecs = getMonthRecords();
+    const totalDays = new Date(currentYear, currentMonth, 0).getDate();
+    
+    document.getElementById('sumTitle').textContent = `${currentYear}年${currentMonth}月 考勤汇总`;
+    document.getElementById('sumSub').textContent = `共 ${PEOPLE.length} 人 · ${totalDays} 天`;
+    
+    let html = '';
+    PEOPLE.forEach((p, i) => {
+      const pRecs = monthRecs.filter(r => r.person === i);
+      const counts = {};
+      TYPES.forEach(t => { counts[t.key] = pRecs.filter(r => r.type === t.key).length; });
+      const total = pRecs.length;
+      
+      html += `<div class="person-summary-row">
+        <div>
+          <div class="ps-name">${p}</div>
+          <div class="ps-detail">
+            正常${counts.normal} · 迟到${counts.late} · 早退${counts.early} · 请假${counts.leave} · 缺勤${counts.absent}
+          </div>
+        </div>
+        <div class="ps-total">${total}<small style="font-size:12px;color:#8395A7;font-weight:400">/${totalDays}</small></div>
+      </div>`;
+    });
+    
+    document.getElementById('summaryBody').innerHTML = html;
+  }
+  
+  // ===== 生成月度总结 =====
+  function generateSummary() {
+    const monthRecs = getMonthRecords();
+    const totalDays = new Date(currentYear, currentMonth, 0).getDate();
+    const monthStr = `${currentYear}年${currentMonth}月`;
+    
+    let text = `📊 ${monthStr}考勤汇总报告\n`;
+    text += `━━━━━━━━━━━━━━━━━━━━\n`;
+    text += `统计对象：杨建军、沈炜、郁启\n`;
+    text += `统计天数：${totalDays} 天\n`;
+    text += `生成时间：${new Date().toLocaleString('zh-CN')}\n`;
+    text += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+    
+    PEOPLE.forEach((p, i) => {
+      const pRecs = monthRecs.filter(r => r.person === i);
+      const counts = {};
+      TYPES.forEach(t => { counts[t.key] = pRecs.filter(r => r.type === t.key).length; });
+      const total = pRecs.length;
+      const rate = totalDays > 0 ? (counts.normal / totalDays * 100).toFixed(1) : 0;
+      
+      text += `【${p}】\n`;
+      text += `  总记录天数：${total}/${totalDays}\n`;
+      text += `  正常出勤：${counts.normal} 天\n`;
+      text += `  迟到：${counts.late} 天\n`;
+      text += `  早退：${counts.early} 天\n`;
+      text += `  请假：${counts.leave} 天\n`;
+      text += `  缺勤：${counts.absent} 天\n`;
+      text += `  正常出勤率：${rate}%\n`;
+      text += `\n`;
+    });
+    
+    text += `━━━━━━━━━━━━━━━━━━━━\n`;
+    text += `共计考勤记录：${monthRecs.length} 条\n`;
+    
+    return text;
+  }
+  
+  // ===== Toast =====
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 1500);
+  }
+  
+  // ===== 事件绑定 =====
+  function bindEvents() {
+    // 月份切换
+    document.getElementById('prevMonth').addEventListener('click', () => {
+      currentMonth--;
+      if (currentMonth < 1) { currentMonth = 12; currentYear--; }
+      selectedDate = null;
+      renderMonth();
+      renderRecords();
+      renderSummary();
+    });
+    
+    document.getElementById('nextMonth').addEventListener('click', () => {
+      currentMonth++;
+      if (currentMonth > 12) { currentMonth = 1; currentYear++; }
+      selectedDate = null;
+      renderMonth();
+      renderRecords();
+      renderSummary();
+    });
+    
+    // 人员切换
+    document.getElementById('personTabs').addEventListener('click', (e) => {
+      const tab = e.target.closest('.person-tab');
+      if (!tab) return;
+      selectedPerson = parseInt(tab.dataset.idx);
+      selectedDate = null;
+      renderPersonTabs();
+      renderMonth();
+      renderRecords();
+    });
+    
+    // 类型弹窗
+    document.getElementById('confirmType').addEventListener('click', confirmAdd);
+    document.getElementById('cancelType').addEventListener('click', closeTypeModal);
+    document.getElementById('typeModal').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('typeModal')) closeTypeModal();
+    });
+    
+    // 月度总结
+    document.getElementById('btnSummary').addEventListener('click', () => {
+      const text = generateSummary();
+      document.getElementById('summaryContent').textContent = text;
+      document.getElementById('summaryModal').classList.add('show');
+    });
+    
+    document.getElementById('copySummary').addEventListener('click', () => {
+      const text = document.getElementById('summaryContent').textContent;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => showToast('📋 已复制到剪贴板'));
+      } else {
+        // fallback
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast('📋 已复制到剪贴板');
+      }
+    });
+    
+    document.getElementById('closeSummary').addEventListener('click', () => {
+      document.getElementById('summaryModal').classList.remove('show');
+    });
+    
+    document.getElementById('summaryModal').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('summaryModal')) {
+        document.getElementById('summaryModal').classList.remove('show');
+      }
+    });
+  }
+  
+  // ===== 启动 =====
+  init();
+})();
+</script>
+</body>
+</html>
